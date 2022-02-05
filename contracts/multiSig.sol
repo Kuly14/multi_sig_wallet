@@ -38,6 +38,7 @@ contract multiSig {
 
     modifier notExecuted(uint _txId) {
         require(!transactions[_txId].executed, "tx already executed");
+        _;
     }
 
 
