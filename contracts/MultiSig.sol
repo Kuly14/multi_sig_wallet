@@ -2,10 +2,11 @@
 
 pragma solidity ^0.8.0;
 
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 
 contract MultiSig {
-    event Deposit(address indexed sender, uint amount);
+    event Deposit(address indexed sender, address indexed _token,  uint amount);
     event Submit(uint indexed txId);
     event Aproove(address indexed owner, uint indexed txId);
     event Execute(uint indexed txId);
@@ -19,7 +20,7 @@ contract MultiSig {
     struct Transaction {
         address to;
         uint value;
-        bytes data; 
+        address token; 
         bool executed;
     }
 
@@ -57,17 +58,23 @@ contract MultiSig {
         }
     }
 
-    receive() external payable {
-        emit Deposit(msg.sender, msg.value);
+
+    // To call this function you will first have to aproove the amount. 
+    function receiveErc20(address _token, uint _amount) external {
+        require(IERC20(_token).balanceOf(msg.sender) >= _amount);
+        IERC20(_token).transferFrom(msg.sender, address(this), _amount);
+        emit Deposit(msg.sender, _token, _amount);
+
     }
 
-    function submit(address _to, uint _value, bytes calldata _data) external {
+
+    function submit(address _to, uint _value, address _token) external {
         require(checkIfIsOwner() == true);
 
         transactions.push(Transaction({
             to: _to, 
             value: _value,
-            data: _data,
+            token: _token,
             executed: false
         }));
 
@@ -86,15 +93,13 @@ contract MultiSig {
 
         transaction.executed = true;
 
-        (bool sucess, ) = transaction.to.call{value: transaction.value}(
-            transaction.data
-        );
-        require(sucess, "tx failed");
-
+        uint amount = transaction.value;
+        address receiver = transaction.to;
+        address ercToken = transaction.token;
+        
+        IERC20(ercToken).transfer(receiver, amount);
         emit Execute(_txId);
     }
-
-
 
 
     // Helper functions
